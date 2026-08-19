@@ -20,12 +20,12 @@ case "$mode" in
       repository: $repo,
       run_id: $run_id,
       issue: {
-        number: $issue[0].number,
-        title: $issue[0].title,
-        author: $issue[0].user.login,
-        labels: [$issue[0].labels[].name],
-        body: $issue[0].body,
-        comments: $comments
+        number: .[0].number,
+        title: .[0].title,
+        author: .[0].user.login,
+        labels: [.[0].labels[].name],
+        body: .[0].body,
+        comments: .[1]
       }
     }' /tmp/issue.json /tmp/comments.json > context.json
     ;;
@@ -37,13 +37,13 @@ case "$mode" in
       repository: $repo,
       run_id: $run_id,
       pull_request: {
-        number: $pr[0].number,
-        title: $pr[0].title,
-        author: $pr[0].user.login,
-        base: $pr[0].base.ref,
-        head: $pr[0].head.ref,
-        body: $pr[0].body,
-        files: [$files[0][] | {path, additions, deletions, changes}]
+        number: .[0].number,
+        title: .[0].title,
+        author: .[0].user.login,
+        base: .[0].base.ref,
+        head: .[0].head.ref,
+        body: .[0].body,
+        files: [.[1][] | {path, additions, deletions, changes}]
       }
     }' /tmp/pr.json /tmp/files.json > context.json
     ;;
