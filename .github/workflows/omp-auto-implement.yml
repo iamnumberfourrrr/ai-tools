@@ -88,11 +88,26 @@ jobs:
 
       - name: Push and open draft PR
         if: always() && steps.omp.outcome != 'skipped'
+        env:
+          OMP_GH_PAT: ${{ secrets.OMP_GH_PAT }}
         run: |
-          if git diff --cached --quiet && git diff --quiet && [ -z "$(git status --porcelain --untracked-files)" ]; then
-            printf '## OMP implement: no changes\n\nomp produced no working-tree changes. See artifacts.\n' > none.md
+          if git diff --quiet && git diff --cached --quiet && [ -z "$(git status --porcelain --untracked-files)" ]; then
+            printf '## OMP implement: no changes\n\nomp produced no working-tree changes. See run artifacts.\n' > none.md
             ./ai-tools/scripts/post-result.sh issue-comment "$ISSUE" "omp:auto-implement" none.md
             exit 0
+          fi
+          # GITHUB_TOKEN cannot push .github/workflows changes; deliberately
+          # NOT granted workflows:write (issue-labeled automation editing its
+          # own permissions is an exfiltration path). Exclude + disclose.
+          if [ -n "$(git status --porcelain -- .github/workflows)" ]; then
+            git checkout -- .github/workflows 2>/dev/null || true
+            git clean -f -- .github/workflows 2>/dev/null || true
+            printf '\n## Workflow changes excluded\n\nomp proposed edits under .github/workflows/ which the GITHUB_TOKEN cannot push. Review them in the run artifacts, or set an OMP_GH_PAT secret (workflows scope) to allow.\n' >> out.md
+          fi
+          if [ -n "$OMP_GH_PAT" ]; then
+            # PAT pushes trigger caller CI on the draft PR; GITHUB_TOKEN does not.
+            export GH_TOKEN="$OMP_GH_PAT"
+            gh auth setup-git >/dev/null 2>&1
           fi
           git add -A
           git commit -m "feat: implement #$ISSUE (omp automation)" -m "Refs #$ISSUE" || true
