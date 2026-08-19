@@ -22,6 +22,16 @@ on:
         required: false
         type: string
         default: 'main'
+      max-minutes:
+        description: 'omp wall-clock budget'
+        required: false
+        type: number
+        default: 15
+      job-timeout-minutes:
+        description: 'hard job ceiling (set > max-minutes)'
+        required: false
+        type: number
+        default: 25
 
 permissions:
   contents: read
@@ -34,7 +44,7 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ fromJSON(inputs.max-minutes) + 10 }}
+    timeout-minutes: ${{ inputs.job-timeout-minutes }}
     env:
       ISSUE: ${{ inputs.issue-number }}
       TASK: ${{ inputs.task }}

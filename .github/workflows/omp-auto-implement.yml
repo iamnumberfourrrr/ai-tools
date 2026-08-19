@@ -20,6 +20,10 @@ on:
         required: false
         type: string
         default: 'main'
+      job-timeout-minutes:
+        required: false
+        type: number
+        default: 60
 
 permissions:
   contents: write
@@ -33,7 +37,7 @@ concurrency:
 jobs:
   implement:
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ fromJSON(inputs.max-minutes) + 15 }}
+    timeout-minutes: ${{ inputs.job-timeout-minutes }}
     env:
       ISSUE: ${{ inputs.issue-number }}
       OMP_API_KEY: ${{ secrets.OMP_API_KEY }}
