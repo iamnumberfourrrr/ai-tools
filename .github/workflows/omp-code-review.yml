@@ -19,7 +19,7 @@ on:
       toolkit-ref:
         required: false
         type: string
-        default: 'main'
+        default: 'v0.1.0'
       job-timeout-minutes:
         required: false
         type: number

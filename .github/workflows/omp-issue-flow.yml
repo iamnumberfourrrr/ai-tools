@@ -21,7 +21,7 @@ on:
         description: 'ai-tools ref for scripts/prompts'
         required: false
         type: string
-        default: 'main'
+        default: 'v0.1.0'
       max-minutes:
         description: 'omp wall-clock budget'
         required: false
