@@ -55,10 +55,9 @@ case "$cmd" in
       comments_json=$(jq -c '[.[] | select(.path != null and .position != null) |
         {path, position, body: ("**" + .severity + "** — " + .message)}]' "$findings")
     fi
-    gh api -X POST "repos/$repo/pulls/$number/reviews" \
-      -F body="$(body_with_run_link "$summary")" \
-      -F event=COMMENT \
-      -F "comments=$comments_json" >/dev/null
+    jq -n --arg b "$(body_with_run_link "$summary")" --argjson c "$comments_json" \
+      '{body: $b, event: "COMMENT", comments: $c}' \
+      | gh api -X POST "repos/$repo/pulls/$number/reviews" --input - >/dev/null
     echo "posted review on PR #$number ($(echo "$comments_json" | jq length) inline)"
     ;;
 
