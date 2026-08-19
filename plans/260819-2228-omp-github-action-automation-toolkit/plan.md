@@ -44,18 +44,13 @@ Caller repo adds ONE thin router workflow (label → `uses:` the right reusable 
 ## Phases
 | Phase | File | Status |
 |---|---|---|
-| 1. Scaffold + install spike | [phase-01-scaffold-install.md](phase-01-scaffold-install.md) | Pending |
-| 2. Core runner workflow + scripts | [phase-02-core-runner.md](phase-02-core-runner.md) | Pending |
-| 3. Issue flows: auto-plan + bug-triage | [phase-03-issue-flows.md](phase-03-issue-flows.md) | Pending |
-| 4. PR flow: code-review | [phase-04-code-review.md](phase-04-code-review.md) | Pending |
-| 5. Write flow: auto-implement | [phase-05-auto-implement.md](phase-05-auto-implement.md) | Pending |
-| 6. Docs + end-to-end validation | [phase-06-docs-validation.md](phase-06-docs-validation.md) | Pending |
+| 1. Scaffold + install spike | [phase-01-scaffold-install.md](phase-01-scaffold-install.md) | Done |
+| 2. Core runner workflow + scripts | [phase-02-core-runner.md](phase-02-core-runner.md) | Done |
+| 3. Issue flows: auto-plan + bug-triage | [phase-03-issue-flows.md](phase-03-issue-flows.md) | Done |
+| 4. PR flow: code-review | [phase-04-code-review.md](phase-04-code-review.md) | Done |
+| 5. Write flow: auto-implement | [phase-05-auto-implement.md](phase-05-auto-implement.md) | Done |
+| 6. Docs + end-to-end validation | [phase-06-docs-validation.md](phase-06-docs-validation.md) | Done |
 
-## Key dependencies
-- Phase 2 blocks 3-5 (flows are thin wrappers over core runner)
-- Phase 6 requires a scratch caller repo for E2E proof
-
-## Cross-cutting constraints
 - All jobs: explicit minimal `permissions:`, `concurrency` per issue/PR, `timeout-minutes`
 - `pull_request_target` (fork) risk handled via same-repo guard + protected environment
 - No secrets in logs; `OMP_API_KEY` masked; prompts carry issue body (prompt-injection surface — prompts instruct omp to treat issue text as data, not instructions)
