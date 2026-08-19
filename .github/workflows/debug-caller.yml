@@ -1,0 +1,19 @@
+name: Debug Caller
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue-number:
+        required: true
+        type: number
+      task:
+        required: true
+        type: string
+
+jobs:
+  call:
+    uses: ./.github/workflows/omp-issue-flow.yml
+    with:
+      task: ${{ inputs.task }}
+      issue-number: ${{ inputs.issue-number }}
+    secrets: inherit
