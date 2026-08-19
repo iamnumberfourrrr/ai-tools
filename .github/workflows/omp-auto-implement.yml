@@ -91,25 +91,24 @@ jobs:
         env:
           OMP_GH_PAT: ${{ secrets.OMP_GH_PAT }}
         run: |
-          if git diff --quiet && git diff --cached --quiet && [ -z "$(git status --porcelain --untracked-files)" ]; then
+          if git diff --quiet HEAD && git diff --cached --quiet HEAD && [ -z "$(git status --porcelain --untracked-files)" ]; then
             printf '## OMP implement: no changes\n\nomp produced no working-tree changes. See run artifacts.\n' > none.md
             ./ai-tools/scripts/post-result.sh issue-comment "$ISSUE" "omp:auto-implement" none.md
             exit 0
           fi
-          # GITHUB_TOKEN cannot push .github/workflows changes; deliberately
-          # NOT granted workflows:write (issue-labeled automation editing its
-          # own permissions is an exfiltration path). Exclude + disclose.
-          if [ -n "$(git status --porcelain -- .github/workflows)" ]; then
-            git checkout -- .github/workflows 2>/dev/null || true
-            git clean -f -- .github/workflows 2>/dev/null || true
+          # omp stages its own work: revert both index and worktree copies.
+          git restore --source=HEAD --staged --worktree -- .github/workflows 2>/dev/null || true
+          git clean -f -- .github/workflows 2>/dev/null || true
+          if ! git diff --quiet HEAD -- .github/workflows || ! git diff --cached --quiet HEAD -- .github/workflows; then
             printf '\n## Workflow changes excluded\n\nomp proposed edits under .github/workflows/ which the GITHUB_TOKEN cannot push. Review them in the run artifacts, or set an OMP_GH_PAT secret (workflows scope) to allow.\n' >> out.md
           fi
           if [ -n "$OMP_GH_PAT" ]; then
-            # PAT pushes trigger caller CI on the draft PR; GITHUB_TOKEN does not.
             export GH_TOKEN="$OMP_GH_PAT"
             gh auth setup-git >/dev/null 2>&1
           fi
-          git add -A
+          # Never commit the toolkit checkout (nested repo) or flow artifacts.
+          git add -A -- . ':!ai-tools' ':!out.md' ':!prompt.md' ':!context.json' ':!omp.log' ':!template.md' ':!findings.json' ':!none.md' ':!fail.md'
+          git rm -rf --cached -q ai-tools 2>/dev/null || true
           git commit -m "feat: implement #$ISSUE (omp automation)" -m "Refs #$ISSUE" || true
           git push --force-with-lease origin "$BRANCH"
           ./ai-tools/scripts/post-result.sh draft-pr "$ISSUE" "$BRANCH" out.md
