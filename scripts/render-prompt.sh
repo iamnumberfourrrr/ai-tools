@@ -17,15 +17,21 @@ grep -q '<!-- omp:context -->' "$template" || {
 
 awk -v ctx="$context" '
   /<!-- omp:context -->/ {
-    print "```json"
+    print "````json"
     while ((getline line < ctx) > 0) print line
     close(ctx)
-    print "```"
+    print "````"
     seen = 1
     next
   }
   { print }
   END { exit seen ? 0 : 1 }
 ' "$template" > "$output"
+
+fences=$(grep -c '^[[:space:]]*```' "$output" || true)
+if [ $((fences % 2)) -ne 0 ]; then
+  echo "::error::rendered prompt has unbalanced code fences ($fences fence lines)" >&2
+  exit 1
+fi
 
 echo "rendered $output ($(wc -l < "$output") lines)"

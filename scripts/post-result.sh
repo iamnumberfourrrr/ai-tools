@@ -19,8 +19,8 @@ body_with_run_link() {
   local body
   body=$(cat "$1")
   if [ -n "${GITHUB_RUN_ID:-}" ]; then
-    printf '%s\n\n---\n*via [run %s](%s/%s/actions/runs/%s)*\n' \
-      "$body" "${GITHUB_RUN_ID:-}" "https://github.com/$repo" "$repo" "${GITHUB_RUN_ID:-}"
+    printf '%s\n\n---\n*via [run %s](https://github.com/%s/actions/runs/%s)*\n' \
+      "$body" "${GITHUB_RUN_ID}" "$repo" "${GITHUB_RUN_ID}"
   else
     printf '%s\n' "$body"
   fi

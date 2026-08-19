@@ -63,10 +63,11 @@ jobs:
         run: |
           slug=$(gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE" --jq '.title' \
             | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | cut -c1-40 | sed 's/-$//')
-          echo "BRANCH=omp/$ISSUE-${slug:-task}" >> "$GITHUB_ENV"
+          branch="omp/$ISSUE-${slug:-task}"
+          echo "BRANCH=$branch" >> "$GITHUB_ENV"
           git config user.name "omp-automation"
           git config user.email "omp-automation@users.noreply.github.com"
-          git checkout -B "$BRANCH"
+          git checkout -B "$branch"
 
       - name: Fetch context
         run: ./ai-tools/scripts/fetch-context.sh issue "$ISSUE"

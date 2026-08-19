@@ -32,7 +32,7 @@ most important thing to address.
 
 ## Findings
 For each finding, a fenced JSON object on its own line inside one fenced
-```json block — an array of objects with keys:
+`json` fenced block — an array of objects with keys:
 
     [{"path": "src/x.ts", "position": 12,
       "severity": "blocker|major|minor",
