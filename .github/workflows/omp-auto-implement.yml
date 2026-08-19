@@ -58,6 +58,8 @@ jobs:
           ref: ${{ inputs.toolkit-ref }}
           path: ai-tools
           token: ${{ github.token }}
+      - name: Exclude flow artifacts from commits
+        run: printf 'ai-tools/\nout.md\nprompt.md\ncontext.json\nomp.log\ntemplate.md\nfindings.json\nnone.md\nfail.md\n' >> .git/info/exclude
 
       - name: Create branch
         run: |
@@ -103,11 +105,12 @@ jobs:
             printf '\n## Workflow changes excluded\n\nomp proposed edits under .github/workflows/ which the GITHUB_TOKEN cannot push. Review them in the run artifacts, or set an OMP_GH_PAT secret (workflows scope) to allow.\n' >> out.md
           fi
           if [ -n "$OMP_GH_PAT" ]; then
+            # PAT pushes trigger caller CI on the draft PR; GITHUB_TOKEN does not.
             export GH_TOKEN="$OMP_GH_PAT"
             gh auth setup-git >/dev/null 2>&1
           fi
-          # Never commit the toolkit checkout (nested repo) or flow artifacts.
-          git add -A -- . ':!ai-tools' ':!out.md' ':!prompt.md' ':!context.json' ':!omp.log' ':!template.md' ':!findings.json' ':!none.md' ':!fail.md'
+          # info/exclude already covers ai-tools/ and flow artifacts.
+          git add -A
           git rm -rf --cached -q ai-tools 2>/dev/null || true
           git commit -m "feat: implement #$ISSUE (omp automation)" -m "Refs #$ISSUE" || true
           git push --force-with-lease origin "$BRANCH"
