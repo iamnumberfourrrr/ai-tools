@@ -18,5 +18,5 @@ jobs:
     uses: ./.github/workflows/omp-issue-flow.yml
     with:
       task: ${{ inputs.task }}
-      issue-number: ${{ inputs.issue-number }}
+      issue-number: ${{ fromJSON(inputs.issue-number) }}
     secrets: inherit

@@ -2,6 +2,10 @@ name: OMP Router
 
 # Dogfood + E2E harness: routes labeled issues/PRs of THIS repo to the
 # reusable flows. Caller repos copy this file.
+#
+# NOTE: the permissions block is the CEILING for called workflows — a reusable
+# workflow cannot request more than its caller grants. Each called flow
+# narrows its own token further.
 on:
   issues:
     types: [labeled]
@@ -21,7 +25,7 @@ jobs:
     uses: ./.github/workflows/omp-issue-flow.yml
     with:
       task: ${{ github.event.label.name }}
-      issue-number: ${{ github.event.issue.number }}
+      issue-number: ${{ fromJSON(github.event.issue.number) }}
     secrets: inherit
 
   implement:
@@ -30,7 +34,7 @@ jobs:
       github.event.label.name == 'auto-implement'
     uses: ./.github/workflows/omp-auto-implement.yml
     with:
-      issue-number: ${{ github.event.issue.number }}
+      issue-number: ${{ fromJSON(github.event.issue.number) }}
     secrets: inherit
 
   review:
@@ -39,5 +43,5 @@ jobs:
       github.event.label.name == 'auto-review'
     uses: ./.github/workflows/omp-code-review.yml
     with:
-      pr-number: ${{ github.event.pull_request.number }}
+      pr-number: ${{ fromJSON(github.event.pull_request.number) }}
     secrets: inherit
