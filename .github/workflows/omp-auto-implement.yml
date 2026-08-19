@@ -1,0 +1,107 @@
+name: OMP Auto Implement
+
+# omp implements a labeled issue on a dedicated branch, CI pushes + opens
+# a draft PR. omp never receives git credentials.
+on:
+  workflow_call:
+    inputs:
+      issue-number:
+        required: true
+        type: number
+      model:
+        required: false
+        type: string
+        default: ''
+      max-minutes:
+        required: false
+        type: number
+        default: 45
+      toolkit-ref:
+        required: false
+        type: string
+        default: 'main'
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: omp-implement-${{ inputs.issue-number }}
+  cancel-in-progress: false
+
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ fromJSON(inputs.max-minutes) + 15 }}
+    env:
+      ISSUE: ${{ inputs.issue-number }}
+      OMP_API_KEY: ${{ secrets.OMP_API_KEY }}
+      OMP_PROVIDER: ${{ vars.OMP_PROVIDER || 'zhipu-coding-plan' }}
+      OMP_MODEL: ${{ inputs.model || vars.OMP_MODEL }}
+      OMP_MAX_MINUTES: ${{ inputs.max-minutes }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check out toolkit
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/ai-tools
+          ref: ${{ inputs.toolkit-ref }}
+          path: ai-tools
+          token: ${{ github.token }}
+
+      - name: Create branch
+        run: |
+          slug=$(gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE" --jq '.title' \
+            | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | cut -c1-40 | sed 's/-$//')
+          echo "BRANCH=omp/$ISSUE-${slug:-task}" >> "$GITHUB_ENV"
+          git config user.name "omp-automation"
+          git config user.email "omp-automation@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+
+      - name: Fetch context
+        run: ./ai-tools/scripts/fetch-context.sh issue "$ISSUE"
+
+      - name: Render prompt
+        run: |
+          cat ai-tools/prompts/_header.md ai-tools/prompts/auto-implement.md > template.md
+          sed -i "s|{{REPOSITORY}}|$GITHUB_REPOSITORY|" template.md
+          ./ai-tools/scripts/render-prompt.sh template.md context.json prompt.md
+
+      - name: Run omp
+        id: omp
+        run: |
+          ./ai-tools/scripts/install-omp.sh
+          ./ai-tools/scripts/run-omp.sh prompt.md out.md
+        env:
+          OMP_CWD: ${{ github.workspace }}
+
+      - name: Push and open draft PR
+        if: always() && steps.omp.outcome != 'skipped'
+        run: |
+          if git diff --cached --quiet && git diff --quiet && [ -z "$(git status --porcelain --untracked-files)" ]; then
+            printf '## OMP implement: no changes\n\nomp produced no working-tree changes. See artifacts.\n' > none.md
+            ./ai-tools/scripts/post-result.sh issue-comment "$ISSUE" "omp:auto-implement" none.md
+            exit 0
+          fi
+          git add -A
+          git commit -m "feat: implement #$ISSUE (omp automation)" -m "Refs #$ISSUE" || true
+          git push --force-with-lease origin "$BRANCH"
+          ./ai-tools/scripts/post-result.sh draft-pr "$ISSUE" "$BRANCH" out.md
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: omp-implement-${{ inputs.issue-number }}
+          path: |
+            out.md
+            prompt.md
+            context.json
+            omp.log
+          if-no-files-found: ignore

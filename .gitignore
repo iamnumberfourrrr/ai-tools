@@ -1,0 +1,7 @@
+# tooling caches
+.node_modules/
+*.log
+out.md
+prompt.md
+context.json
+findings.json

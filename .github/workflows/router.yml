@@ -1,0 +1,38 @@
+name: OMP Router
+
+# Dogfood + E2E harness: routes labeled issues/PRs of THIS repo to the
+# reusable flows. Caller repos copy this file.
+on:
+  issues:
+    types: [labeled]
+  pull_request_target:
+    types: [labeled]
+
+jobs:
+  issue-flows:
+    if: >-
+      github.event_name == 'issues' &&
+      contains(fromJSON('["auto-plan", "bug-triage"]'), github.event.label.name)
+    uses: ./.github/workflows/omp-issue-flow.yml
+    with:
+      task: ${{ github.event.label.name }}
+      issue-number: ${{ github.event.issue.number }}
+    secrets: inherit
+
+  implement:
+    if: >-
+      github.event_name == 'issues' &&
+      github.event.label.name == 'auto-implement'
+    uses: ./.github/workflows/omp-auto-implement.yml
+    with:
+      issue-number: ${{ github.event.issue.number }}
+    secrets: inherit
+
+  review:
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.label.name == 'auto-review'
+    uses: ./.github/workflows/omp-code-review.yml
+    with:
+      pr-number: ${{ github.event.pull_request.number }}
+    secrets: inherit

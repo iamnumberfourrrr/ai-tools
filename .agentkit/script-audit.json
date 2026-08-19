@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-19T15:22:46Z",
+  "report": {
+    "schema_version": 1,
+    "roots": [
+      "/Users/tunguyen/repo/ai-tools"
+    ],
+    "summary": {
+      "total": 0,
+      "by_risk": {},
+      "by_language": {},
+      "findings": 0,
+      "executable_only": 0
+    },
+    "scripts": []
+  }
+}

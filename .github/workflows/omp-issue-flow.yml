@@ -1,0 +1,95 @@
+name: OMP Issue Flow
+
+# Read-only omp flows on labeled issues: auto-plan, bug-triage.
+# Called via workflow_call from the caller's router workflow.
+on:
+  workflow_call:
+    inputs:
+      task:
+        description: 'auto-plan | bug-triage'
+        required: true
+        type: string
+      issue-number:
+        required: true
+        type: number
+      model:
+        description: 'omp model (fuzzy match), empty = provider default'
+        required: false
+        type: string
+        default: ''
+      toolkit-ref:
+        description: 'ai-tools ref for scripts/prompts'
+        required: false
+        type: string
+        default: 'main'
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: omp-issue-${{ inputs.task }}-${{ inputs.issue-number }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ fromJSON(inputs.max-minutes) + 10 }}
+    env:
+      ISSUE: ${{ inputs.issue-number }}
+      TASK: ${{ inputs.task }}
+      OMP_API_KEY: ${{ secrets.OMP_API_KEY }}
+      OMP_PROVIDER: ${{ vars.OMP_PROVIDER || 'zhipu-coding-plan' }}
+      OMP_MODEL: ${{ inputs.model || vars.OMP_MODEL }}
+      OMP_MAX_MINUTES: ${{ inputs.max-minutes }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Check out toolkit
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/ai-tools
+          ref: ${{ inputs.toolkit-ref }}
+          path: ai-tools
+          token: ${{ github.token }}
+
+      - name: Fetch context
+        run: ./ai-tools/scripts/fetch-context.sh issue "$ISSUE"
+
+      - name: Render prompt
+        run: |
+          cat ai-tools/prompts/_header.md ai-tools/prompts/"$TASK".md > template.md
+          sed -i "s|{{REPOSITORY}}|$GITHUB_REPOSITORY|" template.md
+          ./ai-tools/scripts/render-prompt.sh template.md context.json prompt.md
+
+      - name: Run omp
+        id: omp
+        run: |
+          ./ai-tools/scripts/install-omp.sh
+          ./ai-tools/scripts/run-omp.sh prompt.md out.md
+        env:
+          OMP_CWD: ${{ github.workspace }}
+
+      - name: Post comment
+        if: always() && steps.omp.outcome != 'skipped'
+        run: |
+          if [ -s out.md ]; then
+            ./ai-tools/scripts/post-result.sh issue-comment "$ISSUE" "omp:$TASK" out.md
+          else
+            printf '## OMP %s failed\n\nNo output. See run logs.\n' "$TASK" > fail.md
+            ./ai-tools/scripts/post-result.sh issue-comment "$ISSUE" "omp:$TASK" fail.md
+          fi
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: omp-${{ inputs.task }}-${{ inputs.issue-number }}
+          path: |
+            out.md
+            prompt.md
+            context.json
+            omp.log
+          if-no-files-found: ignore

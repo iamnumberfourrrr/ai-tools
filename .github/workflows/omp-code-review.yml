@@ -1,0 +1,107 @@
+name: OMP Code Review
+
+# omp review of a labeled PR. Same-repo PRs only — fork PRs are refused
+# (untrusted code exec with secrets in env).
+on:
+  workflow_call:
+    inputs:
+      pr-number:
+        required: true
+        type: number
+      model:
+        required: false
+        type: string
+        default: ''
+      max-minutes:
+        required: false
+        type: number
+        default: 20
+      toolkit-ref:
+        required: false
+        type: string
+        default: 'main'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: omp-review-${{ inputs.pr-number }}
+  cancel-in-progress: false
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ fromJSON(inputs.max-minutes) + 10 }}
+    env:
+      PR: ${{ inputs.pr-number }}
+      OMP_API_KEY: ${{ secrets.OMP_API_KEY }}
+      OMP_PROVIDER: ${{ vars.OMP_PROVIDER || 'zhipu-coding-plan' }}
+      OMP_MODEL: ${{ inputs.model || vars.OMP_MODEL }}
+      OMP_MAX_MINUTES: ${{ inputs.max-minutes }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Guard — same-repo PRs only
+        run: |
+          head_repo=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq '.head.repo.full_name // empty')
+          if [ -n "$head_repo" ] && [ "$head_repo" != "$GITHUB_REPOSITORY" ]; then
+            gh pr comment "$PR" --body "OMP review skipped: fork PRs are not reviewed automatically (untrusted checkout with secrets). Ask a maintainer or push the branch to this repo."
+            exit 1
+          fi
+          echo "same-repo PR, proceeding"
+
+      - name: Check out merge ref
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: refs/pull/${{ inputs.pr-number }}/merge
+
+      - name: Check out toolkit
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/ai-tools
+          ref: ${{ inputs.toolkit-ref }}
+          path: ai-tools
+          token: ${{ github.token }}
+
+      - name: Fetch context
+        run: ./ai-tools/scripts/fetch-context.sh pr "$PR"
+
+      - name: Render prompt
+        run: |
+          cat ai-tools/prompts/_header.md ai-tools/prompts/code-review.md > template.md
+          sed -i "s|{{REPOSITORY}}|$GITHUB_REPOSITORY|" template.md
+          ./ai-tools/scripts/render-prompt.sh template.md context.json prompt.md
+
+      - name: Run omp
+        id: omp
+        run: |
+          ./ai-tools/scripts/install-omp.sh
+          ./ai-tools/scripts/run-omp.sh prompt.md out.md
+        env:
+          OMP_CWD: ${{ github.workspace }}
+
+      - name: Post review
+        if: always() && steps.omp.outcome != 'skipped'
+        run: |
+          if [ -s out.md ]; then
+            # Extract the fenced ```json array from the Findings section.
+            awk '/^## Findings/{f=1} f&&/^```json/{c=1;next} c&&/^```/{exit} c{print}' out.md > findings.json || true
+            ./ai-tools/scripts/post-result.sh pr-review "$PR" out.md findings.json
+          else
+            printf '## OMP review failed\n\nNo output. See run logs.\n' > fail.md
+            ./ai-tools/scripts/post-result.sh pr-review "$PR" fail.md -
+          fi
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: omp-review-${{ inputs.pr-number }}
+          path: |
+            out.md
+            prompt.md
+            context.json
+            findings.json
+            omp.log
+          if-no-files-found: ignore
