@@ -37,9 +37,6 @@ permissions:
   contents: read
   issues: write
 
-concurrency:
-  group: omp-issue-${{ inputs.task }}-${{ inputs.issue-number }}
-  cancel-in-progress: false
 
 jobs:
   run:
